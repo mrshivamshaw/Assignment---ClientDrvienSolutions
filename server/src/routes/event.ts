@@ -2,6 +2,7 @@ import express from 'express';
 import { EventModel } from '../models/Event';
 import { authenticate, authorize } from '../middleware/auth';
 import { AuthRequest } from '../types';
+import { createEventSchema, updateEventSchema } from '../validation/schemas';
 
 export const eventRoutes = express.Router();
 
@@ -13,7 +14,6 @@ eventRoutes.get('/', authenticate, async (req: AuthRequest, res, next) => {
     let query: any = {};
     
     if (req.user!.role === 'admin') {
-      // Admin can see all events
       if (visibility) query.visibility = visibility;
     } else {
       query.$or = [
@@ -22,7 +22,6 @@ eventRoutes.get('/', authenticate, async (req: AuthRequest, res, next) => {
       ];
     }
     
-    // Search functionality
     if (search) {
       query.$and = query.$and || [];
       query.$and.push({
@@ -53,6 +52,132 @@ eventRoutes.get('/', authenticate, async (req: AuthRequest, res, next) => {
         pages: Math.ceil(total / Number(limit))
       }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+eventRoutes.get('/:id', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const event = await EventModel
+      .findById(req.params.id)
+      .populate('createdBy', 'displayName email')
+      .populate('attendees', 'displayName email');
+      
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    if (event.visibility === 'private' && 
+        req.user!.role !== 'admin' && 
+        event.createdBy._id.toString() !== req.user!._id.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    res.json(event);
+  } catch (error) {
+    next(error);
+  }
+});
+
+eventRoutes.post('/', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const validatedData = createEventSchema.parse(req.body);
+    
+    const event = new EventModel({
+      ...validatedData,
+      createdBy: req.user!._id,
+      startDate: new Date(validatedData.startDate),
+      endDate: new Date(validatedData.endDate)
+    });
+    
+    const savedEvent = await event.save();
+    const populatedEvent = await EventModel
+      .findById(savedEvent._id)
+      .populate('createdBy', 'displayName email');
+      
+    res.status(201).json(populatedEvent);
+  } catch (error) {
+    next(error);
+  }
+});
+
+eventRoutes.put('/:id', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const validatedData = updateEventSchema.parse(req.body);
+    
+    const event = await EventModel.findById(req.params.id);
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    // Check permissions
+    if (req.user!.role !== 'admin' && 
+        event.createdBy.toString() !== req.user!._id.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const updateData: any = { ...validatedData };
+    if (validatedData.startDate) updateData.startDate = new Date(validatedData.startDate);
+    if (validatedData.endDate) updateData.endDate = new Date(validatedData.endDate);
+    
+    const updatedEvent = await EventModel
+      .findByIdAndUpdate(req.params.id, updateData, { new: true })
+      .populate('createdBy', 'displayName email')
+      .populate('attendees', 'displayName email');
+      
+    res.json(updatedEvent);
+  } catch (error) {
+    next(error);
+  }
+});
+
+eventRoutes.delete('/:id', authenticate, authorize(['admin']), async (req: AuthRequest, res, next) => {
+  try {
+    const event = await EventModel.findByIdAndDelete(req.params.id);
+    
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    res.json({ message: 'Event deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+eventRoutes.post('/:id/attend', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const event = await EventModel.findById(req.params.id);
+    
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    // Check if event is accessible
+    if (event.visibility === 'private' && 
+        req.user!.role !== 'admin' && 
+        event.createdBy.toString() !== req.user!._id.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const userId = req.user!._id.toString();
+    const isAttending = event.attendees.includes(userId as any);
+    
+    if (isAttending) {
+      event.attendees = event.attendees.filter(id => id.toString() !== userId);
+    } else {
+      event.attendees.push(userId as any);
+    }
+    
+    await event.save();
+    
+    const updatedEvent = await EventModel
+      .findById(event._id)
+      .populate('createdBy', 'displayName email')
+      .populate('attendees', 'displayName email');
+      
+    res.json(updatedEvent);
   } catch (error) {
     next(error);
   }
