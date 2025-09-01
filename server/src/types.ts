@@ -1,4 +1,5 @@
 import {Types} from "mongoose"
+import express from 'express';
 
 export interface User {
   _id: string;
@@ -22,4 +23,8 @@ export interface Event {
   attendees: string[];//attendies
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface AuthRequest extends express.Request {
+  user?: User;
 }
