@@ -6,7 +6,8 @@ import {
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
-  type User as FirebaseUser
+  type User as FirebaseUser,
+  updateProfile
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { apiClient } from '../lib/api';
@@ -63,14 +64,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
-      
+
       if (user) {
         await syncUserWithBackend(user);
       } else {
         setCurrentUser(null);
         localStorage.removeItem('authToken');
       }
-      
+
       setLoading(false);
     });
 
@@ -94,10 +95,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoading(true);
     try {
       const { user } = await createUserWithEmailAndPassword(auth, email, password);
-      //@ts-ignore
-      await user.updateProfile({ displayName });
+
+      if (user) {
+        await updateProfile(user, { displayName });
+        await user.reload();
+      }
+
       toast.success('Account created successfully!');
     } catch (error: any) {
+      console.log(error);
       toast.error(error.message || 'Registration failed');
       throw error;
     } finally {
