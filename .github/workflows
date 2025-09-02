@@ -1,0 +1,11 @@
+name: Keep Server Alive
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # Runs every 5 minutes
+jobs:
+  keep_alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send request to keep backend active
+        run: curl -X GET https://assignment-clientdrviensolutions.onrender.com/health
