@@ -192,14 +192,4 @@ npm start          # Start production server
 ```bash
 npm start          # Start development server
 npm run build      # Build for production
-npm test           # Run test suite
 ```
-
-## Live Demo
-
-Frontend: https://your-frontend-url.netlify.app
-Backend API: https://your-backend-url.herokuapp.com
-
-## License
-
-This project is licensed under the MIT License.
