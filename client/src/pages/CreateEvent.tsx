@@ -6,17 +6,27 @@ import { apiClient } from '../lib/api';
 import { type CreateEventData } from '../types';
 import toast from 'react-hot-toast';
 
-const eventSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(100, 'Title too long'),
-  description: z.string().min(1, 'Description is required').max(1000, 'Description too long'),
-  startDate: z.string().min(1, 'Start date is required'),
-  endDate: z.string().min(1, 'End date is required'),
-  location: z.string().min(1, 'Location is required').max(200, 'Location too long'),
-  visibility: z.enum(['public', 'private']),
-}).refine(data => new Date(data.endDate) > new Date(data.startDate), {
-  message: 'End date must be after start date',
-  path: ['endDate'],
-});
+const eventSchema = z
+  .object({
+    title: z.string().min(1, 'Title is required').max(100, 'Title too long'),
+    description: z
+      .string()
+      .min(1, 'Description is required')
+      .max(1000, 'Description too long'),
+    startDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
+      message: "Invalid start date format",
+    }),
+    endDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
+      message: "Invalid end date format",
+    }),
+
+    location: z.string().min(1, 'Location is required').max(200, 'Location too long'),
+    visibility: z.enum(['public', 'private']).default('public'),
+  })
+  .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
+    message: 'End date must be after start date',
+    path: ['endDate'],
+  });
 
 export const CreateEvent: React.FC = () => {
   const navigate = useNavigate();
@@ -41,13 +51,16 @@ export const CreateEvent: React.FC = () => {
     },
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Clear error when user starts typing
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: '' }));
     }
   };
 
@@ -61,14 +74,14 @@ export const CreateEvent: React.FC = () => {
     } catch (error) {
       if (error instanceof z.ZodError) {
         const newErrors: Record<string, string> = {};
-        //@ts-ignore
-        error.errors.forEach((err: any) => {
-          if (err.path[0]) {
-            newErrors[err.path[0] as string] = err.message;
+        error.issues.forEach((issue) => {
+          if (issue.path[0]) {
+            newErrors[issue.path[0] as string] = issue.message;
           }
         });
         setErrors(newErrors);
       }
+
     }
   };
 
@@ -76,7 +89,11 @@ export const CreateEvent: React.FC = () => {
     <div className="max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold text-gray-800 mb-8">Create New Event</h1>
 
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded-lg shadow-md space-y-6">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white p-8 rounded-lg shadow-md space-y-6"
+      >
+        {/* Title */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Event Title *
@@ -86,14 +103,91 @@ export const CreateEvent: React.FC = () => {
             name="title"
             value={formData.title}
             onChange={handleChange}
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.location ? 'border-red-500' : 'border-gray-300'
-            }`}
-            placeholder="Enter event location"
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.title ? 'border-red-500' : 'border-gray-300'
+              }`}
+            placeholder="Enter event title"
           />
-          {errors.location && <p className="text-red-500 text-sm mt-1">{errors.location}</p>}
+          {errors.title && (
+            <p className="text-red-500 text-sm mt-1">{errors.title}</p>
+          )}
         </div>
 
+        {/* Description */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Description *
+          </label>
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.description ? 'border-red-500' : 'border-gray-300'
+              }`}
+            placeholder="Describe your event"
+            rows={4}
+          />
+          {errors.description && (
+            <p className="text-red-500 text-sm mt-1">{errors.description}</p>
+          )}
+        </div>
+
+        {/* Dates */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Start Date *
+            </label>
+            <input
+              type="datetime-local"
+              name="startDate"
+              value={formData.startDate}
+              onChange={handleChange}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.startDate ? 'border-red-500' : 'border-gray-300'
+                }`}
+            />
+            {errors.startDate && (
+              <p className="text-red-500 text-sm mt-1">{errors.startDate}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              End Date *
+            </label>
+            <input
+              type="datetime-local"
+              name="endDate"
+              value={formData.endDate}
+              onChange={handleChange}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.endDate ? 'border-red-500' : 'border-gray-300'
+                }`}
+            />
+            {errors.endDate && (
+              <p className="text-red-500 text-sm mt-1">{errors.endDate}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Location */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Location *
+          </label>
+          <input
+            type="text"
+            name="location"
+            value={formData.location}
+            onChange={handleChange}
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.location ? 'border-red-500' : 'border-gray-300'
+              }`}
+            placeholder="Enter event location"
+          />
+          {errors.location && (
+            <p className="text-red-500 text-sm mt-1">{errors.location}</p>
+          )}
+        </div>
+
+        {/* Visibility */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Visibility
@@ -109,6 +203,7 @@ export const CreateEvent: React.FC = () => {
           </select>
         </div>
 
+        {/* Buttons */}
         <div className="flex space-x-4">
           <button
             type="submit"
@@ -117,7 +212,7 @@ export const CreateEvent: React.FC = () => {
           >
             {createMutation.isPending ? 'Creating...' : 'Create Event'}
           </button>
-          
+
           <button
             type="button"
             onClick={() => navigate('/events')}
