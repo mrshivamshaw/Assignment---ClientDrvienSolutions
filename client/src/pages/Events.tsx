@@ -24,7 +24,7 @@ export const Events: React.FC = () => {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setPage(1); // Reset to first page on search
+    setPage(1);
   };
 
   return (
